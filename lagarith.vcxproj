@@ -389,6 +389,7 @@
     <ClCompile Include="comp_burrows-wheeler.cpp" />
     <ClCompile Include="convert_lagarith.cpp" />
     <ClCompile Include="decompression.cpp" />
+    <ClCompile Include="dll_Manager.cpp" />
     <ClCompile Include="drvproc.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug64|Win32'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug64|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
