@@ -83,13 +83,13 @@ void Block_Predict_SSE2( const unsigned char * __restrict source, unsigned char 
 		for ( a=1;a<align_shift;a++){
 			dest[a] = source[a]-source[a-1];
 		}
-		t0 = _mm_cvtsi32_si128(source[align_shift-1]);
+		t0 = _mm_cvtsi32_si128(source[align_shift-1]); // t0 = source[align_shift-1]
 	}
-	for ( a=align_shift;a<width;a+=16){
+	for ( a=align_shift;a<width;a+=16){// bis zeile voll ist
 		__m128i x = *(__m128i*)&source[a];
-		t0 = _mm_or_si128(t0,_mm_slli_si128(x,1));
-		*(__m128i*)&dest[a]=_mm_sub_epi8(x,t0);
-		t0 = _mm_srli_si128(x,15);
+		t0 = _mm_or_si128(t0,_mm_slli_si128(x,1));/*t0 = t0| x << 8*/
+		*(__m128i*)&dest[a]=_mm_sub_epi8(x,t0); // absolute differenz x und t0 Byteweise
+		t0 = _mm_srli_si128(x,15); // t0 = x << 120  --> (t0 = 0)
 	}
 
 	if ( width>=length )
@@ -109,19 +109,19 @@ void Block_Predict_SSE2( const unsigned char * __restrict source, unsigned char 
 	a = width;
 	{
 		// this block makes sure that source[a] is aligned to 16
-		__m128i srcs = _mm_loadu_si128((__m128i *)&source[a]);
-		__m128i y = _mm_loadu_si128((__m128i *)&source[a-width]);
+		__m128i srcs = _mm_loadu_si128((__m128i *)&source[a]); // srcs = source[width]
+		__m128i y = _mm_loadu_si128((__m128i *)&source[a-width]); // y = source[0]
 
-		x = _mm_or_si128(x,_mm_slli_si128(srcs,1));
-		z = _mm_or_si128(z,_mm_slli_si128(y,1));
+		x = _mm_or_si128(x,_mm_slli_si128(srcs,1));/*x = x| srcs << 8*/
+		z = _mm_or_si128(z,_mm_slli_si128(y,1)); /*z = z| y << 8*/
 
-		__m128i tx = _mm_unpackhi_epi8(x,_mm_setzero_si128());
+		__m128i tx = _mm_unpackhi_epi8(x,_mm_setzero_si128()); //tx[0] = x[8]; tx[1] = 0; tx[2] = x[9]; tx[3] = 0;  
 		__m128i ty = _mm_unpackhi_epi8(y,_mm_setzero_si128());
 		__m128i tz = _mm_unpackhi_epi8(z,_mm_setzero_si128());
 
-		tz = _mm_add_epi16(_mm_sub_epi16(tx,tz),ty);
+		tz = _mm_add_epi16(_mm_sub_epi16(tx,tz),ty); // tz = (tz + tx) - ty ->(Byteweise)
 
-		tx = _mm_unpacklo_epi8(x,_mm_setzero_si128());
+		tx = _mm_unpacklo_epi8(x,_mm_setzero_si128()); //tx[0] = x[0]; tx[1] = 0; tx[2] = x[9]; tx[1] = 0;  
 		ty = _mm_unpacklo_epi8(y,_mm_setzero_si128());
 		z = _mm_unpacklo_epi8(z,_mm_setzero_si128());
 		z = _mm_add_epi16(_mm_sub_epi16(tx,z),ty);

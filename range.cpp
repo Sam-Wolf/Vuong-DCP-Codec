@@ -24,8 +24,6 @@
 #include <intrin.h>
 #include "lagarith.h"
 #include "reciprocal_table.cpp"
-#include "log.h"
-#include <sstream>
 //#pragma warning(disable:4731)
 //#pragma warning(disable:4096)
 
@@ -51,7 +49,7 @@ const unsigned int * dist_rest = &dist_restore[0];
 
 // Compress a byte stream using range coding. The freqency table
 // "prob_ranges" will previously have been set up by the Calcprob function
-unsigned int CompressClass::EncodeLAGS( const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length){
+unsigned int CompressClass::EncodeLAGS(const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length) {
 	unsigned int low = 0;
     unsigned int range = TOP_VALUE;
     unsigned int help = 0;
@@ -69,7 +67,6 @@ unsigned int CompressClass::EncodeLAGS( const unsigned char * __restrict in, uns
 
 	int range_table[256][2];
 	for ( int a=0;a<255;a++){
-
 		range_table[a][0] = prob_ranges[a];
 		range_table[a][1] = prob_ranges[a+1]-prob_ranges[a];
 	}
@@ -85,7 +82,6 @@ unsigned int CompressClass::EncodeLAGS( const unsigned char * __restrict in, uns
 		int in_val = *in;
 		in++;
 		int r = range >> scale;
-		
 
 		// Set range to zero if the value is not 255
 		range &= mask255[in_val];

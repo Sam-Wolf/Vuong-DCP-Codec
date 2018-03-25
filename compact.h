@@ -1,11 +1,13 @@
+// Modified by Samuel Wolf
 
 #pragma once
-//Added by Samuel Wolf
+//Added by Samuel Wolf - Begin
 	typedef unsigned int(__stdcall *f_Encode)(const unsigned char * __restrict, unsigned char * __restrict, const unsigned int);
 	typedef void(__stdcall *f_Decode)(const unsigned char * __restrict, unsigned char * __restrict, const unsigned int);
 	typedef char *(__stdcall *f_Name)();
 	typedef unsigned long(__stdcall *f_DWORD)();
 	typedef bool(__stdcall *f_Buffer)();
+//Added by Samuel Wolf - End
 
 class CompressClass {
 
@@ -22,38 +24,27 @@ public:
 	bool InitCompressBuffers(const unsigned int length);
 	void FreeCompressBuffers();
 
-	//Added by Samuel Wolf
-	f_Encode Encode;
-	f_Decode Decode;
+
+	//Added by Samuel Wolf - Begin
+	f_Encode Encode1;
+	f_Decode Decode1;
+	f_Encode Encode2;
+	f_Decode Decode2;
+	f_Encode Encode3;
+	f_Decode Decode3;
+	unsigned char * comp_settings;
+
+	unsigned int CompactLAGS(unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length);
+	void UncompactLAGS(const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length);
+	//Added by Samuel Wolf - End
 
 	unsigned int Compact( unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length);
 	void Uncompact( const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length);
 	unsigned int Calcprob(const unsigned char * in, unsigned int length, unsigned char * out=0);
 	void Scaleprob(const unsigned int length);
 	unsigned int Readprob(const unsigned char * in);
-	unsigned int EncodeLAGS( const unsigned char * in, unsigned char * out, const unsigned int length);
+	unsigned int EncodeLAGS(const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length);
 	void Decode_And_DeRLE( const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length, unsigned int level);
-
-	unsigned int EncodeTemplate(const unsigned char * in, unsigned char * out, const unsigned int length);
-	void DecodeTemplate(const unsigned char * in, unsigned char * out, const unsigned int length);
-
-	unsigned int EncodeRLE(const unsigned char * in, unsigned char * out, const unsigned int length);
-	void DecodeRLE(const unsigned char * in, unsigned char * out, const unsigned int length);
-	unsigned int Charprob(const unsigned char * in, unsigned int length, unsigned char * out, unsigned char * prob_table);
-
-	unsigned int EncodeHUF(const unsigned char * in, unsigned char * out, const unsigned int length);
-	void DecodeHUF(const unsigned char * in, unsigned char * out, const unsigned int length);
-
-	unsigned int EncodeSF(const unsigned char * in, unsigned char * out, const unsigned int length);
-	void DecodeSF(const unsigned char * in, unsigned char * out, const unsigned int length);
-	
-	unsigned int EncodeLZ77(const unsigned char * in, unsigned char * out, const unsigned int length);
-	void DecodeLZ77(const unsigned char * in, unsigned char * out, const unsigned int length);
-
-	unsigned int EncodeBW(const unsigned char * in, unsigned char * out, const unsigned int length);
-	void DecodeBW(const unsigned char * in, unsigned char * out, const unsigned int length);
-
-
 };
 
 void ObsoleteUncompact( const unsigned char * in, unsigned char * out, int length, unsigned char * buffer);

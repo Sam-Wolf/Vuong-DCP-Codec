@@ -1,6 +1,8 @@
 //	Lagarith v1.3.25, copyright 2011 by Ben Greenwood.
 //	http://lags.leetcode.net/codec.html
 //
+//  Modified by Samuel Wolf
+//
 //	This program is free software; you can redistribute it and/or
 //	modify it under the terms of the GNU General Public License
 //	as published by the Free Software Foundation; either version 2
@@ -93,7 +95,7 @@ inline void * lag_aligned_malloc( void *ptr, int size, int align, char *str ) {
 #include "resource.h"
 #include "compact.h"
 
-//Changed by Samuel Wolf
+//Modified by Samuel Wolf
 static const DWORD FOURCC_LAGS = mmioFOURCC('V','D','C','P');
 
 static const DWORD FOURCC_YUY2 = mmioFOURCC('Y','U','Y','2');
@@ -140,6 +142,7 @@ struct ThreadData {
 	CompressClass cObj;
 };
 
+//Modified by Samuel Wolf
 class CodecInst {
 public:
 	int started;			//if the codec has been properly initalized yet
@@ -154,17 +157,20 @@ public:
 	unsigned int height;
 	unsigned int format;	//input format for compressing, output format for decompression. Also the bitdepth.
 
+	//Added by Samuel Wolf - Begin
 	bool decode_DLL_Loaded;
-	
-	bool nullframes;
-	bool use_alpha;
-	int lossy_option;
 	int comp_method1;
 	int comp_method2;
 	int comp_method3;
 	int notif_level;
 	char p_dll[MAX_PATH];
+	DWORD Load_DLL_Funtions(DWORD compresseion_method, f_Encode * Encode, f_Decode * Decode);
+	int comp_skip;
+	//Added by Samuel Wolf - End
 
+	bool nullframes;
+	bool use_alpha;
+	int lossy_option;
 	bool multithreading;
 	CompressClass cObj;
 	unsigned int compressed_size;
@@ -231,7 +237,7 @@ extern unsigned long decompression_method1;
 extern unsigned long decompression_method2;
 extern unsigned long decompression_method3;
 
-extern char dll_path[MAX_PATH];
+//extern char dll_path[MAX_PATH];
 
 extern bool  big_buffer;
 extern bool use_prediction;
@@ -251,6 +257,10 @@ extern DLL_Info dll_info[256];
 
 unsigned int LoadDLLS();
 unsigned int GetDll(DWORD Compression_ID, unsigned int length);
+
+
+//extern "C"  unsigned int EncodeTemplate(const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length);
+//void DecodeTemplate(const unsigned char * __restrict in, unsigned char * __restrict out, const unsigned int length);
 
 // Added by Samuel Wolf - End
 

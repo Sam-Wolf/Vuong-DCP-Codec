@@ -1,6 +1,8 @@
 //	Lagarith v1.3.25, copyright 2011 by Ben Greenwood.
 //	http://lags.leetcode.net/codec.html
 //
+//  Modified by Samuel Wolf
+//
 //	This program is free software; you can redistribute it and/or
 //	modify it under the terms of the GNU General Public License
 //	as published by the Free Software Foundation; either version 2
@@ -23,14 +25,14 @@
 #include <Windowsx.h>
 #include <intrin.h>
 
-// Added by Samuel Wolf
+// Added by Samuel Wolf - Begin
 #include <sstream>
-#include "log.h"
 #include <filesystem>
 #include <iostream>
 #include <windows.h>
 #include <shlobj.h>
 namespace fs = std::experimental::filesystem;
+// Added by Samuel Wolf - End
 
 static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData)
 {
@@ -88,6 +90,7 @@ CodecInst::CodecInst(){
 	performance.time_a=0xffffffffffffffff;
 	performance.time_b=0xffffffffffffffff;
 	decode_DLL_Loaded = 0;
+	comp_skip = 12;
 
 }
 
@@ -177,6 +180,7 @@ int AddTooltip(HWND tooltip, HWND client, UINT stringid){
 	return uid++;
 }
 
+// Modified by Samuel Wolf 
 void StoreRegistrySettings(bool nullframes, bool suggestrgb, bool multithread, bool noupsample, int mode, int comp1, int comp2, int comp3, int notification){
 	DWORD dp;
 	HKEY regkey;
@@ -189,12 +193,12 @@ void StoreRegistrySettings(bool nullframes, bool suggestrgb, bool multithread, b
 		RegSetValueEx(regkey,"NoUpsample",0,REG_DWORD,(unsigned char*)&noupsample,4);
 		RegSetValueEx(regkey,"Mode",0,REG_SZ,(unsigned char*)ModeStrings[mode],4);
 
-		// Added by Samuel Wolf
+		// Added by Samuel Wolf - Begin
 		RegSetValueEx(regkey, "CompressionMethod1", 0, REG_DWORD, (unsigned char*)&comp1,4);
 		RegSetValueEx(regkey, "CompressionMethod2", 0, REG_DWORD, (unsigned char*)&comp2, 4);
 		RegSetValueEx(regkey, "CompressionMethod3", 0, REG_DWORD, (unsigned char*)&comp3, 4);
-
 		RegSetValueEx(regkey, "Notification_Level", 0, REG_DWORD, (unsigned char*)&notification, 4);
+		// Added by Samuel Wolf - END
 
 		RegCloseKey(regkey);
 	}
@@ -207,8 +211,6 @@ void StoreRegistrySettingsPATH(char * path, int size) {
 
 	if (RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\vuong-dcp", 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &regkey, &dp) == ERROR_SUCCESS) {
 
-		MessageBoxA(NULL, path, "Vuong-DCP", MB_ICONINFORMATION | MB_OK);
-
 		RegSetValueEx(regkey, "DLL_Path", 0, REG_SZ, (unsigned char*)path, size);
 
 
@@ -216,7 +218,8 @@ void StoreRegistrySettingsPATH(char * path, int size) {
 	}
 }
 
-void LoadRegistrySettings(bool * nullframes, bool * suggestrgb, bool * multithread, bool * noupsample, int * mode, int * comp1, int * comp2, int * comp3, char * path, int * notification){
+// Modified by Samuel Wolf 
+void LoadRegistrySettings(bool * nullframes, bool * suggestrgb, bool * multithread, bool * noupsample, int * mode, int * comp1, int * comp2, int * comp3, char * path, unsigned int * notification){
 	HKEY regkey;
 	char * ModeStrings[4] = {"RGBA","RGB","YUY2","YV12"};
 	unsigned char data[]={0,0,0,0,0,0,0,0};
@@ -282,10 +285,11 @@ void LoadRegistrySettings(bool * nullframes, bool * suggestrgb, bool * multithre
 			}
 
 			if (path) {
-				RegQueryValueEx(regkey, "DLL_Path", 0, NULL, data, &size);
-				char d = *(char*)data;
-				*path = d;
-				//MessageBoxA(NULL, path, "Vuong-DCP", MB_ICONINFORMATION | MB_OK);
+				char  data_path[260] = {0};
+				DWORD cbValueLength = sizeof(data_path);
+				RegQueryValueEx(regkey, "DLL_Path", NULL, NULL, reinterpret_cast<LPBYTE>(&data_path), &cbValueLength);
+				path = (char*)data_path;
+				
 			}
 			if (notification) {
 				RegQueryValueEx(regkey, "Notification_Level", 0, NULL, data, &size);
@@ -302,35 +306,39 @@ void LoadRegistrySettings(bool * nullframes, bool * suggestrgb, bool * multithre
 		bool suggest = GetPrivateProfileInt("settings", "suggest", false, "vuong-dcp.ini")>0;
 		bool mt = GetPrivateProfileInt("settings", "multithreading", false, "vuong-dcp.ini")>0;
 		int m = GetPrivateProfileInt("settings", "lossy_option", 1, "vuong-dcp.ini");
-
-		// Added by Samuel Wolf 
-		int c1 = GetPrivateProfileInt("settings", "CompressionMethod1", 'NONE', "vuong-dcp.ini");
-		int c2 = GetPrivateProfileInt("settings", "CompressionMethod2", 'NONE', "vuong-dcp.ini");
-		int c3 = GetPrivateProfileInt("settings", "CompressionMethod3", 'NONE', "vuong-dcp.ini");
-		char p[MAX_PATH] = {};
-		GetPrivateProfileString("settings", "DLL_Path", "C:\\",p, sizeof("C:\\"),"vuong-dcp.ini" );
-		int n = GetPrivateProfileInt("settings", "Notification_Level", 0, "vuong-dcp.ini");
-
 		if (m < 0 || m > 4){
 			m=1;
 		} else if ( m == 4){
 			m=3;
-		}
-		StoreRegistrySettings(nf,suggest,mt,nu,m,c1,c2,c3,n);
-		StoreRegistrySettingsPATH(p, sizeof("C:\\"));
+		}	
+		
 		if ( nullframes ) *nullframes = nf;
 		if ( suggestrgb ) *suggestrgb = suggest;
 		if ( multithread) *multithread = mt;
 		if ( mode )	*mode = m;
+
+		// Added by Samuel Wolf - Begin
+		int c1 = GetPrivateProfileInt("settings", "CompressionMethod1", 'ENON', "vuong-dcp.ini");
+		int c2 = GetPrivateProfileInt("settings", "CompressionMethod2", 'ENON', "vuong-dcp.ini");
+		int c3 = GetPrivateProfileInt("settings", "CompressionMethod3", 'ENON', "vuong-dcp.ini");
+		char p[MAX_PATH] = {};
+		GetPrivateProfileString("settings", "DLL_Path", "C:\\",p, sizeof("C:\\"),"vuong-dcp.ini" );
+		int n = GetPrivateProfileInt("settings", "Notification_Level", 0, "vuong-dcp.ini");
+
+		StoreRegistrySettings(nf,suggest,mt,nu,m,c1,c2,c3,n);
+		StoreRegistrySettingsPATH(p, sizeof("C:\\"));
 		if (comp1)	*comp1 = c1;
 		if (comp2)	*comp2 = c2; 
 		if (comp3)	*comp3 = c3;
 		if (path)	path = p;
 		if (notification)	*notification = n;
+		// Added by Samuel Wolf - End
 	}
 }
 
 
+
+// Modified by Samuel Wolf 
 static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	if (uMsg == WM_INITDIALOG) {
 
@@ -339,13 +347,12 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		bool nullframes=false;
 		bool multithread=false;
 		int mode=1;
-		int comp1 = 'NONE';
-		int comp2 = 'NONE';
-		int comp3 = 'NONE';
+		int comp1 = 'ENON';
+		int comp2 = 'ENON';
+		int comp3 = 'ENON';
 		char path_dll[MAX_PATH] = "";
-		int notif = 1;
 		
-		LoadRegistrySettings(&nullframes,&suggestrgb,&multithread,&noupsample,&mode, &comp1, &comp2, &comp3, path_dll,&notif);
+		LoadRegistrySettings(&nullframes,&suggestrgb,&multithread,&noupsample,&mode, &comp1, &comp2, &comp3, path_dll,&notification_level);
 
 		HWND hwndItem = GetDlgItem(hwndDlg, IDC_LOSSY_OPTIONS);
 		for(int i=0; i<4; i++)
@@ -357,7 +364,7 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		SendMessage(notificationItem, CB_ADDSTRING, 0, (LPARAM)"1");
 		SendMessage(notificationItem, CB_ADDSTRING, 0, (LPARAM)"2");
 		SendMessage(notificationItem, CB_ADDSTRING, 0, (LPARAM)"3");
-		SendMessage(notificationItem, CB_SETCURSEL, notif, 1);
+		SendMessage(notificationItem, CB_SETCURSEL, notification_level, 1);
 
 
 		HWND compItem1 = GetDlgItem(hwndDlg, IDC_VARIANT_OPTIONS);
@@ -377,7 +384,7 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				std::stringstream stream;
 				stream << "Loaded DLL \n"
 					"\n Name: " << dll_info[i].variant_Names <<
-					"\n ID:" << (char)(dll_info[i].variant_IDs >> 24) << (char)(dll_info[i].variant_IDs >> 16) << (char)(dll_info[i].variant_IDs >> 8) << (char)(dll_info[i].variant_IDs >> 0) <<
+					"\n ID:" << (char)(dll_info[i].variant_IDs >> 0) << (char)(dll_info[i].variant_IDs >> 8) << (char)(dll_info[i].variant_IDs >> 16) << (char)(dll_info[i].variant_IDs >> 24) <<
 					"\n Path: " << dll_info[i].variant_Paths;
 				std::string result(stream.str());
 				MessageBoxA(NULL, result.c_str(), "Vuong-DCP", MB_ICONINFORMATION | MB_OK);
@@ -574,8 +581,7 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 		return_badformat()
 	}
 
-	LoadRegistrySettings(&nullframes,NULL,&multithreading,NULL,&lossy_option, &comp_method1, &comp_method2, &comp_method3,p_dll,&notif_level);
-	notification_level = notif_level;
+	LoadRegistrySettings(&nullframes,NULL,&multithreading,NULL,&lossy_option, &comp_method1, &comp_method2, &comp_method3,p_dll,&notification_level);
 
 	use_alpha = (lossy_option==0);
 	if ( lossy_option ){
@@ -633,6 +639,7 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 	return (DWORD)ICERR_OK;
 }
 
+// Modified by Samuel Wolf 
 // return the intended compress format for the given input format
 DWORD CodecInst::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
 
@@ -645,8 +652,8 @@ DWORD CodecInst::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER
 		return_badformat()
 	}
 
-	LoadRegistrySettings(&nullframes,NULL,&multithreading,NULL,&lossy_option, &comp_method1, &comp_method2, &comp_method3, p_dll, &notif_level);
-	notification_level = notif_level;
+	LoadRegistrySettings(&nullframes,NULL,&multithreading,NULL,&lossy_option, &comp_method1, &comp_method2, &comp_method3, p_dll, &notification_level);
+
 
 	// Added by Samuel Wolf
 	compression_method1 = comp_method1;
@@ -683,6 +690,7 @@ DWORD CodecInst::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER
 	return (DWORD)ICERR_OK;
 }
 
+// Modified by Samuel Wolf 
 // return information about the codec
 DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
 	if (icinfo == NULL)
@@ -736,8 +744,9 @@ DWORD CodecInst::DecompressQuery(const LPBITMAPINFOHEADER lpbiIn, const LPBITMAP
 	}
 
 	bool noupsample=false;
-	LoadRegistrySettings(&nullframes,NULL,&multithreading,&noupsample,NULL,NULL,NULL,NULL,dll_path, &notif_level);
-	notification_level = notif_level;
+	LoadRegistrySettings(&nullframes,NULL,&multithreading,&noupsample,NULL,NULL,NULL,NULL,NULL, &notification_level);
+
+
 	
 
 	unsigned int lossy=0;
@@ -846,8 +855,8 @@ DWORD CodecInst::DecompressGetFormat(const LPBITMAPINFOHEADER lpbiIn, LPBITMAPIN
 
 	bool suggest=false;
 	bool noupsample=false;
-	LoadRegistrySettings(&nullframes,&suggest,&multithreading,&noupsample,NULL,NULL,NULL,NULL,dll_path,&notif_level);
-	notification_level = notif_level;
+	LoadRegistrySettings(&nullframes,&suggest,&multithreading,&noupsample,NULL,NULL,NULL,NULL,NULL,&notification_level);
+
 
 	unsigned int lossy=0;
 	if ( lpbiIn->biSize == sizeof(BITMAPINFOHEADER)+4 ){

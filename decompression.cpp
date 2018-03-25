@@ -1,6 +1,8 @@
 //	Lagarith v1.3.27, copyright 2011 by Ben Greenwood.
 //	http://lags.leetcode.net/codec.html
 //
+//  Modified by Samuel Wolf 
+//
 //	This program is free software; you can redistribute it and/or
 //	modify it under the terms of the GNU General Public License
 //	as published by the Free Software Foundation; either version 2
@@ -30,6 +32,25 @@
 #include "convert_xvid.cpp"
 #endif
 
+//Added by Samuel Wolf - Begin
+void LoadRegistrySettings(unsigned int * notification) {
+	HKEY regkey;
+	unsigned char data[] = { 0,0,0,0,0,0,0,0 };
+	DWORD size = sizeof(data);
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\vuong-dcp", 0, KEY_READ, &regkey) == ERROR_SUCCESS) {
+		if (notification) {
+			RegQueryValueEx(regkey, "Notification_Level", 0, NULL, data, &size);
+			int d = *(int*)data;
+			*notification = d;
+		}
+		RegCloseKey(regkey);
+	}
+	else {
+		if (notification)	*notification = 0;
+	}
+}
+//Added by Samuel Wolf - End
+
 // initalize the codec for decompression
 DWORD CodecInst::DecompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
 	if ( started == 0x1337){
@@ -50,8 +71,6 @@ DWORD CodecInst::DecompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER l
 	
 	length = width*height*format/8;
 
-
-	// TODO: big buffer
 	buffer_size = length+2048 + 10000;
 	if ( format >= RGB24 ){
 		buffer_size=align_round(width*4,8)*height+2048 + 10000;
@@ -86,14 +105,17 @@ DWORD CodecInst::DecompressEnd(){
 		cObj.FreeCompressBuffers();
 
 	}
+	//Added by Samuel Wolf
 	decode_DLL_Loaded = 0;
+
 	started=0;
 	return ICERR_OK;
 }
 
+//Modified by Samuel Wolf
 void CodecInst::Decode3Channels(unsigned char * dst1, unsigned int len1, unsigned char * dst2, unsigned int len2, unsigned char * dst3, unsigned int len3){
 
-	const unsigned char * src1 = in + 9 + 4;
+	const unsigned char * src1 = in + 13 + comp_skip;
 	const unsigned char * src2 = in + *(UINT32*)(in+1);
 	const unsigned char * src3 = in + *(UINT32*)(in+5);
 
@@ -107,7 +129,7 @@ void CodecInst::Decode3Channels(unsigned char * dst1, unsigned int len1, unsigne
 		int size2 = *(UINT32*)(in+5);
 		int size3 = compressed_size-size2;
 		size2 -= size1;
-		size1 -= 9;
+		size1 -= 13;
 
 		// Compressed size should aproximate decoding time.
 		// The priority of the largest channel is boosted to improve
@@ -150,7 +172,7 @@ void CodecInst::Decode3Channels(unsigned char * dst1, unsigned int len1, unsigne
 		wait_for_threads(2);
 	}
 }
-
+//Modified by Samuel Wolf
 // decompress a typical RGB24 frame
 void CodecInst::ArithRGBDecompress(){
 
@@ -163,7 +185,7 @@ void CodecInst::ArithRGBDecompress(){
 	if ( in[0] != OBSOLETE_ARITH ){
 		Decode3Channels(bdst, pixels, gdst, pixels, rdst, pixels);
 	} else {
-		const unsigned char * bsrc = in + 9 + 4;
+		const unsigned char * bsrc = in + 13  +comp_skip;
 		const unsigned char * gsrc = in + *(UINT32*)(in+1);
 		const unsigned char * rsrc = in + *(UINT32*)(in+5);
 
@@ -172,32 +194,21 @@ void CodecInst::ArithRGBDecompress(){
 		ObsoleteUncompact(rsrc,rdst,pixels,buffer2);
 	}
 
-
-	
-	if (use_prediction) {
-
-		if ((width & 3) == 0 || in[0] == UNALIGNED_RGB24) {
-			if (format == RGB24) {
-				Interleave_And_Restore_RGB24(out, rdst, gdst, bdst, width, height, &performance);
-			}
-			else {
-				Interleave_And_Restore_RGB32(out, rdst, gdst, bdst, width, height, &performance);
-			}
+	if ((width & 3) == 0 || in[0] == UNALIGNED_RGB24) {
+		if (format == RGB24) {
+			Interleave_And_Restore_RGB24(out, rdst, gdst, bdst, width, height, &performance);
 		}
 		else {
-			Interleave_And_Restore_Old_Unaligned(bdst, gdst, rdst, out, buffer2, (format == RGB24), width, height);
+			Interleave_And_Restore_RGB32(out, rdst, gdst, bdst, width, height, &performance);
 		}
 	}
 	else {
-
-		unsigned int p_size = (width * height);
-		for (unsigned int a = 0; a < pixels; a++) {
-			out[a * 3] =  bdst[a] + gdst[a];
-			out[a * 3 + 1] = gdst[a];
-			out[a * 3 + 2] =  rdst[a] + gdst[a];
-		}
+		Interleave_And_Restore_Old_Unaligned(bdst, gdst, rdst, out, buffer2, (format == RGB24), width, height);
 	}
-}
+	
+
+	}
+
 
 
 // decompress a RGB24 pixel frame
@@ -224,7 +235,7 @@ void CodecInst::SetSolidFrameRGB32(const unsigned int r, const unsigned int g, c
 		((unsigned int*)out)[x] = pixel;
 	}
 }
-
+//Modified by Samuel Wolf
 // decompress a RGBA keyframe
 void CodecInst::ArithRGBADecompress(){
 
@@ -234,7 +245,7 @@ void CodecInst::ArithRGBADecompress(){
 	unsigned char * bdst=buffer+pixels*2;
 	unsigned char * adst=buffer+pixels*3;
 
-	const unsigned char * bsrc = in + 13;
+	const unsigned char * bsrc = in + 13  +comp_skip;
 	const unsigned char * gsrc = in + *(UINT32*)(in+1);
 	const unsigned char * rsrc = in + *(UINT32*)(in+5);
 	const unsigned char * asrc = in + *(UINT32*)(in+9);
@@ -464,19 +475,16 @@ void CodecInst::ReduceResDecompress(){
 #endif
 
 }
-
+//Modified by Samuel Wolf
 // Called to decompress a frame, the actual decompression will be
 // handed off to other functions based on the frame type.
 DWORD CodecInst::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize) {
 //	try {
 
-	
 
 	DWORD return_code=ICERR_OK;
 	if ( started != 0x1337 ){
-		DecompressBegin(icinfo->lpbiInput,icinfo->lpbiOutput);
-		
-		
+		DecompressBegin(icinfo->lpbiInput,icinfo->lpbiOutput);		
 	}
 
 	out = (unsigned char *)icinfo->lpOutput;
@@ -485,44 +493,52 @@ DWORD CodecInst::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize) {
 
 	
 	//Added by Samuel Wolf - Begin
-	if (!decode_DLL_Loaded) {
-		decompression_method1 = *(DWORD*)(in + 9);
-		if (decompression_method1 == 'LAGS') {
-			//TODO
-		}
-		else {
-			int dll_count = LoadDLLS();
-			unsigned int comp_index = GetDll(decompression_method1, dll_count);
+	if (!decode_DLL_Loaded) {	
+		comp_skip = 12;
 
-			HINSTANCE hGetProc = LoadLibrary(dll_info[comp_index].variant_Paths);
-			if (!hGetProc) {
-				MessageBoxA(NULL, "could not load the dynamic library", "Vuong-DCP", MB_ICONINFORMATION | MB_OKCANCEL);
-				return ICERR_ERROR;
-			}
-			// resolve function address here
-			cObj.Decode = (f_Decode)GetProcAddress(hGetProc, "Decode");
-			if (!cObj.Decode) {
-				MessageBoxA(NULL, "could not locate the function", "Vuong-DCP", MB_ICONINFORMATION | MB_OKCANCEL);
-				return ICERR_ERROR;
-			}
+		LoadRegistrySettings(&notification_level);
 
-			if (notification_level > 0) {
-				std::stringstream stream;
-				stream << "Loaded DLL \n"
-					"\n Name: " << dll_info[comp_index].variant_Names <<
-					"\n ID:" << (char)(dll_info[comp_index].variant_IDs >> 24) << (char)(dll_info[comp_index].variant_IDs >> 16) << (char)(dll_info[comp_index].variant_IDs >> 8) << (char)(dll_info[comp_index].variant_IDs >> 0) <<
-					"\n Path: " << dll_info[comp_index].variant_Paths;
-				std::string result(stream.str());
-				MessageBoxA(NULL, result.c_str(), "Vuong-DCP", MB_ICONINFORMATION | MB_OK);
-			}
+		//if (in[0] == ARITH_ALPHA)
+		//{
+			decompression_method1 = *(DWORD*)(in + 13); 
+			decompression_method2 = *(DWORD*)(in + 17); 
+			decompression_method3 = *(DWORD*)(in + 21);
+		//}
+		/*else
+		{
+			decompression_method1 = *(DWORD*)(in + 9);
+			decompression_method2 = *(DWORD*)(in + 13);
+			decompression_method3 = *(DWORD*)(in + 17);
+		}*/
+
+
+		if (notification_level > 0) {
+			std::stringstream stream;
+			stream << "Loaded DLL ID \n"
+				"\n ID:" << (char)(decompression_method1 >> 0) << (char)(decompression_method1 >> 8) << (char)(decompression_method1 >> 16) << (char)(decompression_method1 >> 24) <<
+				/*"\n ID2:" << (char)(decompression_method2 >> 24) << (char)(decompression_method2 >> 16) << (char)(decompression_method2 >> 8) << (char)(decompression_method2 >> 0) <<
+				"\n ID3:" << (char)(decompression_method3 >> 24) << (char)(decompression_method3 >> 16) << (char)(decompression_method3 >> 8) << (char)(decompression_method3 >> 0)*/ "";
+			std::string result(stream.str());
+			MessageBoxA(NULL, result.c_str(), "Vuong-DCP", MB_ICONINFORMATION | MB_OK);
 		}
 
+		DWORD loaded_error = 0;
+		loaded_error = Load_DLL_Funtions(decompression_method1,&cObj.Encode1, &cObj.Decode1);
+		if (loaded_error)
+			return loaded_error;
+
+		
+		loaded_error = Load_DLL_Funtions(decompression_method2, &cObj.Encode2, &cObj.Decode2);
+		if (loaded_error)
+			return loaded_error;
+
+		loaded_error = Load_DLL_Funtions(decompression_method3, &cObj.Encode3, &cObj.Decode3);
+		if (loaded_error)
+			return loaded_error;
+		
 		decode_DLL_Loaded = 1;
 	}
 	//Added by Samuel Wolf - END
-
-
-
 
 	compressed_size = icinfo->lpbiInput->biSizeImage;
 

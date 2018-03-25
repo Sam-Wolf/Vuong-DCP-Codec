@@ -1,6 +1,8 @@
 //	Lagarith v1.3.27, copyright 2011 by Ben Greenwood.
 //	http://lags.leetcode.net/codec.html
 //
+//  Modified by Samuel Wolf
+//
 //	This program is free software; you can redistribute it and/or
 //	modify it under the terms of the GNU General Public License
 //	as published by the Free Software Foundation; either version 2
@@ -28,8 +30,9 @@
 #include "fibonacci.h"
 #include "zerorle.h"
 
-#include "log.h"
 #include <sstream>
+
+
 
 // scale the byte probablities so the cumulative
 // probabilty is equal to a power of 2
@@ -183,218 +186,83 @@ unsigned int CompressClass::Calcprob(const unsigned char * const in, unsigned in
 // !!!Warning!!! in[length] through in[length+3] will be thrashed
 // in[length+8] must be readable
 
-//Changed by Samuel Wolf
+//  Modified by Samuel Wolf
 unsigned int CompressClass::Compact( unsigned char * in, unsigned char * out, const unsigned int length){
-
 	unsigned int bytes_used=0;
 
-	unsigned int skip = 0;
-	skip += Encode(in, out + skip, length);
+	// Create Buffer
+	unsigned int skip = 4;
+	unsigned char * buffer1 = new unsigned char[length * 6];
+	unsigned char * buffer2 = new unsigned char[length * 6];
+	memset(buffer1, 0, sizeof(buffer1));
+	memset(buffer2, 0, sizeof(buffer2));
+
+
+	unsigned int size1 = 0;
+
+	if (compression_method1 == 'LAGS')
+		size1 += CompactLAGS(in, buffer1, length);
+	else
+		size1 += Encode1(in, buffer1, length);
+
+	*(unsigned int*)(buffer2) = (unsigned int)size1;
+
+	unsigned int size2 = skip;
+	if (compression_method2 == 'LAGS')
+		size2 += CompactLAGS(buffer1, buffer2 + skip, size1);
+	else
+		size2 += Encode2(buffer1, buffer2 + skip, size1);
+
+	*(unsigned int*)(out) = (unsigned int)size2;
+
+	if (compression_method3 == 'LAGS')
+		skip += CompactLAGS(buffer2, out + skip, size2);
+	else
+		skip += Encode3(buffer2, out + skip, size2);
+
 	bytes_used = skip;
-
-	//if (comp_variant == 0) {
-	//	out[0] = 0;
-	//	unsigned int skip = Calcprob(in, length, out + 1);
-	//	skip += EncodeLAGS(in, out + skip + 1, length) + 1;
-	//	bytes_used = skip;
-	//}
-
-	//if (comp_variant == 1) {
-	//	out[0] = 1;
-	//	unsigned int skip = 1;
-	//	skip += EncodeTemplate(in, out + skip, length) ;
-	//	bytes_used = skip;
-
-	//}
-
-	//if (comp_variant == 2) {
-	//	out[0] = 2;
-	//	unsigned int skip = 1;
-	//	skip += EncodeRLE(in, out + skip, length);
-	//	bytes_used = skip;
-
-
-	//}
-	//
-	//if (comp_variant == 3) {
-	//	out[0] = 3;
-	//	unsigned int skip = 1;
-	//	skip += Encode(in, out + skip, length);
-	//	bytes_used = skip;
-
-
-
-	//}
-
-	//if (comp_variant == 4) {
-	//	unsigned int skip = 1;
-	//	out[0] = 4;
-	//	skip += EncodeSF(in, out + skip + 1, length);
-	//	bytes_used = skip;
-	//	
-	//}
-
-	//if (comp_variant == 5) {
-	//	unsigned int skip = 1;
-	//	out[0] = comp_variant;
-	//	skip += EncodeLZ77(in, out + skip, length);
-	//	bytes_used = skip;
-	//	if (bytes_used > length)
-	//	{
-	//		Log("TO MUCH BYTES\n");
-	//		/*out[0] = 1;
-	//		skip = 1;
-	//		skip += EncodeTemplate(in, out + skip, length);
-	//		bytes_used = skip;*/
-	//	}
-	//}
-
-	//if (comp_variant == 6) {
-	//	out[0] = 6;
-	//	unsigned int skip = 5;
-	//	unsigned char * buffer = new unsigned char[length * 4];
-	//	memset(buffer, 0, sizeof(buffer));
-	//	//unsigned char  buffer[120000];
-	//	
-	//	unsigned int size = EncodeRLE(in, buffer, length);
-	//	skip += EncodeHUF(buffer, out + skip, size);
-	//	bytes_used = skip;
-
-	//	out[1] = size >> 32;
-	//	out[2] = size >> 16;
-	//	out[3] = size >> 8;
-	//	out[4] = size;
-
-	//	delete buffer;
-	//}
-
-	//if (comp_variant == 7) {
-	//	out[0] = 7;
-	//	unsigned int skip = 5;
-	//	unsigned char * buffer = new unsigned char[length * 4];
-	//	memset(buffer, 0, sizeof(buffer));
-	//	//unsigned char  buffer[120000];
-
-	//	unsigned int size = EncodeHUF(in, buffer, length);
-	//	skip += EncodeRLE(buffer, out + skip, size);
-	//	bytes_used = skip;
-
-	//	out[1] = size >> 32;
-	//	out[2] = size >> 16;
-	//	out[3] = size >> 8;
-	//	out[4] = size;
-
-	//	delete buffer;
-	//}
-
-	//if (comp_variant == 8) {
-	//	out[0] = 8;
-	//	unsigned int skip = 5;
-	//	unsigned char * buffer = new unsigned char[length * 4];
-	//	memset(buffer, 0, sizeof(buffer));
-	//	//unsigned char  buffer[120000];
-
-	//	unsigned int size = EncodeBW(in, buffer, length);
-	//	skip += EncodeRLE(buffer, out + skip, size);
-	//	bytes_used = skip;
-
-	//	out[1] = size >> 32;
-	//	out[2] = size >> 16;
-	//	out[3] = size >> 8;
-	//	out[4] = size;
-
-	//	delete buffer;
-
-	//}
-
-
+	
+	delete buffer1;
+	delete buffer2;
+	
 	return bytes_used;
+
 }
 
 // this function encapsulates decompressing a byte stream
-// Changed by Samuell Wolf
+//  Modified by Samuel Wolf
 void CompressClass::Uncompact( const unsigned char * in, unsigned char * out, const unsigned int length){
 
-	unsigned int skip = 0;
-	Decode(in + skip, out, length);
+	unsigned int skip = 4;
+
+	unsigned int size1 = *(unsigned int*)(in);
+	unsigned char * buffer1 = new unsigned char[length * 6];
+	memset(buffer1, 0, sizeof(buffer1));
+
+	if (decompression_method3 == 'LAGS')
+		UncompactLAGS(in + skip, buffer1, size1);
+	else
+		Decode3(in + skip, buffer1, size1);
+
+
+	unsigned int size2 = *(unsigned int*)(buffer1);
+	unsigned char * buffer2 = new unsigned char[length * 6];
+	memset(buffer2, 0, sizeof(buffer2));
+
+	if (decompression_method2 == 'LAGS')
+		UncompactLAGS(buffer1 + skip, buffer2, size2);
+	else
+		Decode2(buffer1 + skip, buffer2, size2);
+
+
 	
+	if (decompression_method1 == 'LAGS')
+		UncompactLAGS(buffer2, out, length);
+	else
+		Decode1(buffer2, out, length);
 
-	//int variant = in[0];
-	//if (variant == 0) {
-	//	int skip = *(int*)(in + 1);
-
-	//	// Adobe Premeire Pro tends to zero out the data when multi-threading is enabled...
-	//	// This will help avoid errors
-	//	if (!skip)
-	//		return;
-	//	skip = Readprob(in + 1);
-	//	if (!skip)
-	//		return;
-	//	Decode_And_DeRLE(in + skip + 1, out, length, 0);
-	//}
-
-	//if (variant == 1) {
-	//	unsigned int skip = 1;
-	//	DecodeTemplate(in + skip, out, length);
-	//	
-	//}
-
-	//if (variant == 2) {
-	//	unsigned int skip = 1;
-	//	DecodeRLE(in + skip, out, length);
-	//}
-
-	//if (variant == 3) {
-	//	unsigned int skip = 1;
-	//	Decode(in + skip, out, length);
-	//}
-
-	//if (variant == 4) {
-	//	unsigned int skip = 1;
-	//	DecodeSF(in + skip, out, length);
-
-	//}
-
-	//if (variant == 5) {
-	//	unsigned int skip = 1;
-	//	DecodeLZ77(in + skip, out, length);
-
-	//}
-
-	//if (variant == 6) {
-	//	unsigned int skip = 5;
-	//	unsigned int size = (in[1] << 32) + (in[2] << 16) + (in[3] << 8) + in[4];
-	//	unsigned char * buffer = new unsigned char[size * 3];
-	//	memset(buffer, 0, size * 3);
-	//	DecodeHUF(in + skip, buffer, size);
-	//	DecodeRLE(buffer, out, length);
-
-	//	delete buffer;
-	//}
-
-	//if (variant == 7) {
-	//	unsigned int skip = 5;
-	//	unsigned int size = (in[1] << 32) + (in[2] << 16) + (in[3] << 8) + in[4];
-	//	unsigned char * buffer = new unsigned char[size * 3];
-	//	memset(buffer, 0, size * 3);
-	//	DecodeRLE(in + skip, buffer, size);
-	//	DecodeHUF(buffer, out, length);
-
-	//	delete buffer;
-	//}
-
-	//if (variant == 8) {
-	//	unsigned int skip = 5;
-	//	unsigned int size = (in[1] << 32) + (in[2] << 16) + (in[3] << 8) + in[4];
-	//	unsigned char * buffer = new unsigned char[size * 3];
-	//	memset(buffer, 0, size * 3);
-	//	DecodeRLE(in + skip, buffer, size);
-	//	DecodeBW(buffer, out, length);
-
-	//	delete buffer;
-
-	//}
-	
+	delete buffer1;
+	delete buffer2;
 }
 
 // initalized the buffers used by RLE and range coding routines
@@ -420,6 +288,127 @@ CompressClass::CompressClass(){
 CompressClass::~CompressClass(){
 	FreeCompressBuffers();
 }
+
+// !!!Warning!!! in[length] through in[length+3] will be thrashed
+// in[length+8] must be readable
+//  Original Compact Function
+unsigned int CompressClass::CompactLAGS(unsigned char * in, unsigned char * out, const unsigned int length) {
+
+	unsigned int bytes_used = 0;
+
+	unsigned char * const buffer_1 = buffer;
+	unsigned char * const buffer_2 = buffer + align_round(length * 3 / 2 + 16, 16);
+
+	int rle = 0;
+	unsigned int size = TestAndRLE(in, buffer_1, buffer_2, length, &rle);
+
+	out[0] = rle;
+	if (rle) {
+		if (rle == -1) { // solid run of 0s, only 1st byte is needed
+			out[0] = 0xFF;
+			out[1] = in[0];
+			bytes_used = 2;
+
+		}
+		else {
+			unsigned char * b2;
+			if (rle == 1) {
+				b2 = buffer_1;
+			}
+			else {
+				b2 = buffer_2;
+			}
+
+			*(UINT32*)(out + 1) = size;
+			unsigned int skip = Calcprob(b2, size, out + 5);
+
+
+			skip += EncodeLAGS(b2, out + 5 + skip, size) + 5;
+
+			if (size < skip) { // RLE size is less than range compressed size
+				out[0] += 4;
+				memcpy(out + 1, b2, size);
+				skip = size + 1;
+			}
+			bytes_used = skip;
+		}
+	}
+	else {
+		unsigned int skip = Calcprob(in, length, out + 1);
+		skip += EncodeLAGS(in, out + skip + 1, length) + 1;
+		bytes_used = skip;
+	}
+	assert(bytes_used >= 2);
+	assert(rle <= 3 && rle >= -1);
+	assert(out[0] == rle || rle == -1 || out[0] == rle + 4);
+
+	return bytes_used;
+}
+
+void CompressClass::UncompactLAGS(const unsigned char * in, unsigned char * out, const unsigned int length) {
+
+	int rle = in[0];
+	if (rle && (rle < 8 || rle == 0xff)) { // any other values may indicate a corrupted RLE level from 1.3.0 or 1.3.1	
+		if (rle < 4) {
+
+			unsigned int size = *(UINT32 *)(in + 1);
+			if (size >= length) { // should not happen, most likely a corrupted 1.3.x encoding
+				assert(false);
+				int skip;
+				skip = Readprob(in + 1);
+				if (!skip)
+					return;
+				Decode_And_DeRLE(in + skip + 1, out, length, 0);
+			}
+			else {
+				int skip;
+				skip = Readprob(in + 5);
+
+				if (!skip)
+					return;
+				Decode_And_DeRLE(in + 4 + skip + 1, out, length, in[0]);
+				//zero::deRLE(buffer,out,length,in[0]);
+			}
+		}
+		else {
+			if (rle == 0xff) { // solid run of 0s, only need to set 1 byte
+				memset(out, 0, length);
+				out[0] = in[1];
+			}
+			else { // RLE length is less than range compressed length
+				rle -= 4;
+				if (rle)
+					deRLE(in + 1, out, length, rle);
+				else // uncompressed length is smallest...
+					memcpy((void*)(in + 1), out, length);
+			}
+		}
+	}
+	else {
+
+#ifndef LAGARITH_RELEASE
+		if (in[0]) {
+			char msg[128];
+			sprintf_s(msg, 128, "Error! in[0] = %d", in[0]);
+			MessageBox(HWND_DESKTOP, msg, "Error", MB_OK | MB_ICONEXCLAMATION);
+			memset(out, 0, length);
+			return;
+		}
+#endif
+
+		int skip = *(int*)(in + 1);
+
+		// Adobe Premeire Pro tends to zero out the data when multi-threading is enabled...
+		// This will help avoid errors
+		if (!skip)
+			return;
+		skip = Readprob(in + 1);
+		if (!skip)
+			return;
+		Decode_And_DeRLE(in + skip + 1, out, length, 0);
+	}
+}
+
 
 //MessageBox (HWND_DESKTOP, msg, "Error", MB_OK | MB_ICONEXCLAMATION);
 

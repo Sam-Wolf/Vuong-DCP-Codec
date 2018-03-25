@@ -1,6 +1,8 @@
 //	Lagarith v1.3.25, copyright 2011 by Ben Greenwood.
 //	http://lags.leetcode.net/codec.html
 //
+// 	Modified by Samuel Wolf
+//
 //	This program is free software; you can redistribute it and/or
 //	modify it under the terms of the GNU General Public License
 //	as published by the Free Software Foundation; either version 2
@@ -46,43 +48,22 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 		return error;
 	}
 
-	if (compression_method1 == 'LAGS') {
-		//TODO
-	}
-	else {
-		int dll_count = LoadDLLS();
-		unsigned int comp_index = GetDll(compression_method1, dll_count);
-		//Added by Samuel Wolf - Begin
-		HINSTANCE hGetProc = LoadLibrary(dll_info[comp_index].variant_Paths);
-		if (!hGetProc) {
-			MessageBoxA(NULL, "could not load the dynamic library", "Vuong-DCP", MB_ICONINFORMATION | MB_OKCANCEL);
-			return ICERR_ERROR;
-		}
-		// resolve function address here
-		cObj.Encode = (f_Encode)GetProcAddress(hGetProc, "Encode");
-		if (!cObj.Encode) {
-			MessageBoxA(NULL, "could not locate the function", "Vuong-DCP", MB_ICONINFORMATION | MB_OKCANCEL);
-			return ICERR_ERROR;
-		}
-
-		cObj.Decode = (f_Decode)GetProcAddress(hGetProc, "Decode");
-		if (!cObj.Decode) {
-			MessageBoxA(NULL, "could not locate the function", "Vuong-DCP", MB_ICONINFORMATION | MB_OKCANCEL);
-			return ICERR_ERROR;
-		}
-
-		if (notification_level > 0) {
-			std::stringstream stream;
-			stream << "Loaded DLL \n"
-				"\n Name: " << dll_info[comp_index].variant_Names <<
-				"\n ID:" << (char)(dll_info[comp_index].variant_IDs >> 24) << (char)(dll_info[comp_index].variant_IDs >> 16) << (char)(dll_info[comp_index].variant_IDs >> 8) << (char)(dll_info[comp_index].variant_IDs >> 0) <<
-				"\n Path: " << dll_info[comp_index].variant_Paths;
-			std::string result(stream.str());
-			MessageBoxA(NULL, result.c_str(), "Vuong-DCP", MB_ICONINFORMATION | MB_OK);
-		}
-	}
-
+	//Added by Samuel Wolf - Begin
+	int dll_count = LoadDLLS();
 	
+	DWORD loaded_error = 0;
+	loaded_error = Load_DLL_Funtions(compression_method1,&cObj.Encode1, &cObj.Decode1);
+	if (loaded_error)
+		return loaded_error;
+
+	loaded_error = Load_DLL_Funtions(compression_method2, &cObj.Encode2, &cObj.Decode2);
+	if (loaded_error)
+		return loaded_error;
+
+	loaded_error = Load_DLL_Funtions(compression_method3, &cObj.Encode3, &cObj.Decode3);
+	if (loaded_error)
+		return loaded_error;
+		
 	//Added by Samuel Wolf - End
 
 	width = lpbiIn->biWidth;
@@ -95,15 +76,16 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 	unsigned int buffer_size;
 	if (format < RGB24) {
 		buffer_size = align_round(width, 32)*height*format / 8 + 1024;
-		// Added by Samuel Wolf
+		// Added by Samuel Wolf - Begin
 		if (big_buffer)
-			buffer_size *= 2;
+			buffer_size *= 5;
+		//Added by Samuel Wolf -End
 	}
 	else {
 		buffer_size = align_round(width, 16)*height * 4 + 1024;
 		// Added by Samuel Wolf
 		if (big_buffer)
-			buffer_size *= 2;
+			buffer_size *= 5;
 	}
 
 	buffer = (unsigned char *)lag_aligned_malloc(buffer, buffer_size, 16, "buffer");
@@ -127,10 +109,6 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 			return code;
 		}
 	}
-
-	//*(DWORD*)out = (DWORD)comp_variant;
-	//out++;
-
 	started = 0x1337;
 
 	return ICERR_OK;
@@ -313,6 +291,7 @@ unsigned int CodecInst::HandleThreeCompressionThreads(unsigned int chan_size) {
 	return current_size;
 }
 
+// Modified by Samuel Wolf
 // Encode a typical RGB24 frame, input can be RGB24 or RGB32
 int CodecInst::CompressRGB24(ICCOMPRESS* icinfo) {
 
@@ -333,42 +312,26 @@ int CodecInst::CompressRGB24(ICCOMPRESS* icinfo) {
 	}
 
 	int size = 0;
-	
-
 	if (!multithreading) { // perform prediction
-		//Changed by Samuel Wolf
-		if (use_prediction) {
-			unsigned char * bpred = buffer2;
-			unsigned char * gpred = buffer2 + block_len;
-			unsigned char * rpred = buffer2 + block_len * 2;
+		
+		unsigned char * bpred = buffer2;
+		unsigned char * gpred = buffer2 + block_len;
+		unsigned char * rpred = buffer2 + block_len * 2;
 
-			Block_Predict(bplane, bpred, width, pixels, true);
-			Block_Predict(gplane, gpred, width, pixels, true);
-			Block_Predict(rplane, rpred, width, pixels, true);
+		Block_Predict(bplane, bpred, width, pixels, true);
+		Block_Predict(gplane, gpred, width, pixels, true);
+		Block_Predict(rplane, rpred, width, pixels, true);
 
+		// Modified by Samuel Wolf
+		size = cObj.Compact(bpred, out + 13 + comp_skip, pixels);
+		size += 13 + comp_skip;
+		
+		*(UINT32*)(out + 1) = size;
+		size += cObj.Compact(gpred, out + size, pixels);
 
-			size = cObj.Compact(bpred, out + 9 + 4, pixels);
-			size += 9;
-			size += 4;
-
-			*(UINT32*)(out + 1) = size;
-			size += cObj.Compact(gpred, out + size, pixels);
-
-			*(UINT32*)(out + 5) = size;
-			size += cObj.Compact(rpred, out + size, pixels);
-		}
-		else {
-			size = cObj.Compact(bplane, out + 9 + 4, pixels);
-			size += 9 + 4;
-
-			*(UINT32*)(out + 1) = size;
-			size += cObj.Compact(gplane, out + size, pixels);
-
-			*(UINT32*)(out + 5) = size;
-			size += cObj.Compact(rplane, out + size, pixels);
-		}
-
-
+		*(UINT32*)(out + 5) = size;
+		size += cObj.Compact(rpred, out + size, pixels);
+	
 		
 
 	}
@@ -389,7 +352,7 @@ int CodecInst::CompressRGB24(ICCOMPRESS* icinfo) {
 		unsigned char * bpred = buffer2;
 		Block_Predict(bplane, bpred, width, block_len, true);
 
-		unsigned int blue_size = cObj.Compact(bpred, out + 9, pixels);
+		unsigned int blue_size = cObj.Compact(bpred, out + 13 + comp_skip, pixels);
 
 		size = HandleTwoCompressionThreads(blue_size);
 
@@ -423,7 +386,7 @@ int CodecInst::CompressRGB24(ICCOMPRESS* icinfo) {
 	icinfo->lpbiOutput->biSizeImage = size;
 	return ICERR_OK;
 }
-
+// Modified by Samuel Wolf
 // Compress an RGBA frame (alpha compression is enabled and the input is RGB32)
 int CodecInst::CompressRGBA(ICCOMPRESS* icinfo) {
 
@@ -452,7 +415,8 @@ int CodecInst::CompressRGBA(ICCOMPRESS* icinfo) {
 		Block_Predict(rplane, rpred, width, pixels, true);
 		Block_Predict(aplane, apred, width, pixels, true);
 
-		size = 13;
+		// Modified by Samuel Wolf
+		size = 13 + comp_skip;
 		size += cObj.Compact(bpred, out + size, pixels);
 		*(int*)(out + 1) = size;
 		size += cObj.Compact(gpred, out + size, pixels);
@@ -484,12 +448,12 @@ int CodecInst::CompressRGBA(ICCOMPRESS* icinfo) {
 		SetEvent(threads[2].StartEvent);
 
 		Block_Predict(bplane, bpred, width, block_len, true);
-		unsigned int size_blue = cObj.Compact(bpred, out + 13, pixels);
+		unsigned int size_blue = cObj.Compact(bpred, out + 13 + comp_skip, pixels);
 
 		size = HandleThreeCompressionThreads(size_blue);
 	}
 
-	if (size == 21) {
+	if (size == 21 + comp_skip) {
 		out[0] = PIXELFRAME_ALPHA;
 		out[1] = in[0];
 		out[2] = in[1];
@@ -501,7 +465,7 @@ int CodecInst::CompressRGBA(ICCOMPRESS* icinfo) {
 	icinfo->lpbiOutput->biSizeImage = size;
 	return ICERR_OK;
 }
-
+// Modified by Samuel Wolf
 // Compress a 4:2:2 YUV frame, input can be YUY2, UYVY, or YV16
 int CodecInst::CompressYUV16(ICCOMPRESS* icinfo) {
 
@@ -550,7 +514,8 @@ int CodecInst::CompressYUV16(ICCOMPRESS* icinfo) {
 		Block_Predict_YUV16(u, udest, width / 2, pixels / 2, false);
 		Block_Predict_YUV16(v, vdest, width / 2, pixels / 2, false);
 
-		size = 9;
+		// Modified by Samuel Wolf
+		size = 13 + comp_skip;
 		size += cObj.Compact(ydest, out + size, pixels);
 		*(UINT32*)(out + 1) = size;
 		size += cObj.Compact(udest, out + size, pixels / 2);
@@ -573,7 +538,8 @@ int CodecInst::CompressYUV16(ICCOMPRESS* icinfo) {
 
 		Block_Predict_YUV16(y, ydest, width, pixels, true);
 
-		unsigned int y_size = cObj.Compact(ydest, out + 9, pixels);
+		// Modified by Samuel Wolf
+		unsigned int y_size = cObj.Compact(ydest, out + 13 + comp_skip, pixels);
 		size = HandleTwoCompressionThreads(y_size);
 	}
 	out[0] = ARITH_YUY2;
@@ -584,6 +550,7 @@ int CodecInst::CompressYUV16(ICCOMPRESS* icinfo) {
 	return ICERR_OK;
 }
 
+// Modified by Samuel Wolf
 int CodecInst::CompressYV12(ICCOMPRESS* icinfo) {
 
 	const unsigned int pixels = width*height;
@@ -612,7 +579,8 @@ int CodecInst::CompressYV12(ICCOMPRESS* icinfo) {
 		Block_Predict(vsrc, vdest, width / 2, pixels / 4, false);
 		Block_Predict(usrc, udest, width / 2, pixels / 4, false);
 
-		size = 9;
+		// Modified by Samuel Wolf
+		size = 13 + comp_skip;
 		size += cObj.Compact(ydest, out + size, pixels);
 		*(UINT32*)(out + 1) = size;
 		size += cObj.Compact(vdest, out + size, pixels / 4);
@@ -637,15 +605,14 @@ int CodecInst::CompressYV12(ICCOMPRESS* icinfo) {
 		ydest += (unsigned int)ysrc & 15;
 
 		Block_Predict(ysrc, ydest, width, pixels, false);
-
-		unsigned int y_size = cObj.Compact(ydest, out + 9, pixels);
+		// Modified by Samuel Wolf
+		unsigned int y_size = cObj.Compact(ydest, out + 13 + comp_skip, pixels);
 		size = HandleTwoCompressionThreads(y_size);
 	}
 	out[0] = ARITH_YV12;
 	icinfo->lpbiOutput->biSizeImage = size;
 	return ICERR_OK;
 }
-
 // This downsamples the colorspace if the set encoding colorspace is lower than the
 // colorspace of the input video
 int CodecInst::CompressLossy(ICCOMPRESS * icinfo) {
@@ -724,15 +691,21 @@ int CodecInst::CompressLossy(ICCOMPRESS * icinfo) {
 
 // called to compress a frame; the actual compression will be
 // handed off to other functions depending on the color space and settings
-
+// Modified by Samuel Wolf
 DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
 
 	out = (unsigned char *)icinfo->lpOutput;
 	in = (unsigned char *)icinfo->lpInput;
 
-	*(DWORD*)(out + 9) = (DWORD)compression_method1;
+	// Added by Samuel Wolf
+	*(DWORD*)(out + 13) = (DWORD)compression_method1;
+	*(DWORD*)(out + 17) = (DWORD)compression_method2;
+	*(DWORD*)(out + 21) = (DWORD)compression_method3;
 
 	if (icinfo->lFrameNum == 0) {
+	// Added by Samuel Wolf
+		comp_skip = 12;
+
 		if (started != 0x1337) {
 			if (int error = CompressBegin(icinfo->lpbiInput, icinfo->lpbiOutput) != ICERR_OK)
 				return error;
@@ -820,16 +793,18 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
 		_controlfp(fpuword, _MCW_PC | _MCW_RC);
 	}
 
-
 	
-	DWORD a = *(DWORD*)(out + 9);
-	if (notification_level > 3) {
+	// Added by Samuel Wolf - Begin
+	if (notification_level >= 3) {
 		std::stringstream stream;
-		stream << std::dec << icinfo->lpbiOutput->biSizeImage <<  "/" << icinfo->lpbiInput->biSizeImage;
+		stream << "Compressed / Original \n" << icinfo->lpbiOutput->biSizeImage <<  "/" << icinfo->lpbiInput->biSizeImage <<
+			"\n\n" << "Click Cancel for Notificationlevel = 2";
 		std::string result(stream.str());
 
-		MessageBoxA(NULL, result.c_str(), "Vuong-DCP", MB_ICONINFORMATION | MB_OKCANCEL);
+		if (MessageBoxA(NULL, result.c_str(), "Vuong-DCP", MB_ICONINFORMATION | MB_OKCANCEL) == 2)
+			notification_level = 2;
 	}
+	// Added by Samuel Wolf - End
 
 	return (DWORD)ret_val;
 }

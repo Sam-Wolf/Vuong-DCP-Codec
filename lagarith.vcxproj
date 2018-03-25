@@ -166,7 +166,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>C:\Users\Samuel\source\repos\Compression\Compression;$(TargetDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(TargetDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;WIN32;_WINDOWS;_USRDLL;HUFFYUV_EXPORTS;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS_COUNT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
       <StringPooling>true</StringPooling>
@@ -365,8 +365,6 @@
     <None Include="huffyuv.def" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="entropy.h" />
-    <ClInclude Include="log.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="compact.h" />
     <ClInclude Include="convert.h" />
@@ -377,7 +375,6 @@
     <ClInclude Include="interface.h" />
     <ClInclude Include="lagarith.h" />
     <ClInclude Include="prediction.h" />
-    <ClInclude Include="tree.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compact.cpp" />
@@ -386,7 +383,6 @@
       <FavorSizeOrSpeed Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Size</FavorSizeOrSpeed>
     </ClCompile>
     <ClCompile Include="compression.cpp" />
-    <ClCompile Include="comp_burrows-wheeler.cpp" />
     <ClCompile Include="convert_lagarith.cpp" />
     <ClCompile Include="decompression.cpp" />
     <ClCompile Include="dll_Manager.cpp" />
@@ -400,10 +396,8 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <ClCompile Include="Entropy.cpp" />
     <ClCompile Include="fibonacci.cpp" />
     <ClCompile Include="interface.cpp" />
-    <ClCompile Include="log.cpp" />
     <ClCompile Include="prediction.cpp">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
     </ClCompile>
@@ -413,7 +407,6 @@
     </ClCompile>
     <ClCompile Include="range.cpp" />
     <ClCompile Include="threading.cpp" />
-    <ClCompile Include="tree.cpp" />
     <ClCompile Include="zerorle.cpp" />
   </ItemGroup>
   <ItemGroup>
