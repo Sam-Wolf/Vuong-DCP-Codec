@@ -708,7 +708,7 @@ DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
 
 	// Added by Samuel Wolf - Begin
 	memcpy(icinfo->szName, L"Vuong-DCP", sizeof(L"Vuong-DCP"));
-	memcpy(icinfo->szDescription, L"Vuong-DCP Lossless Codec", sizeof(L"Vuong-DCP Lossless Codec"));
+	memcpy(icinfo->szDescription, L"Vuong-DCP", sizeof(L"Vuong-DCP"));
 	// Added by Samuel Wolf - End
 
 	return sizeof(ICINFO);

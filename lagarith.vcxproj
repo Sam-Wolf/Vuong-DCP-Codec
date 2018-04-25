@@ -216,8 +216,10 @@
       <OutputFile>.\Release/lagarith.bsc</OutputFile>
     </Bscmake>
     <PostBuildEvent>
-      <Message>- Copying to Drivers -</Message>
-      <Command>copy "$(TargetPath)" "H:\vuong-dcp"</Command>
+      <Message>
+      </Message>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release64|Win32'">
